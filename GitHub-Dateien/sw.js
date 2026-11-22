@@ -1,0 +1,26 @@
+/* MyGarage Service Worker: App-Dateien offline verfuegbar halten.
+   Enthaelt keine Nutzerdaten, diese liegen im Browser-Speicher (localStorage/IndexedDB). */
+var CACHE = "mygarage-app-v1";
+var DATEIEN = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-512-maskable.png", "apple-touch-icon.png"];
+
+self.addEventListener("install", function (e) {
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(DATEIEN); }).then(function () { return self.skipWaiting(); }));
+});
+self.addEventListener("activate", function (e) {
+  e.waitUntil(caches.keys().then(function (ks) {
+    return Promise.all(ks.filter(function (k) { return k !== CACHE; }).map(function (k) { return caches.delete(k); }));
+  }).then(function () { return self.clients.claim(); }));
+});
+/* Netz zuerst (damit Updates ankommen), sonst Kopie aus dem Cache */
+self.addEventListener("fetch", function (e) {
+  var r = e.request;
+  if (r.method !== "GET" || new URL(r.url).origin !== location.origin) return;
+  e.respondWith(
+    fetch(r).then(function (res) {
+      if (res && res.ok) { var kopie = res.clone(); caches.open(CACHE).then(function (c) { c.put(r, kopie); }); }
+      return res;
+    }).catch(function () {
+      return caches.match(r, { ignoreSearch: true }).then(function (t) { return t || caches.match("index.html"); });
+    })
+  );
+});

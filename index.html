@@ -136,7 +136,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
   .mveh::-webkit-scrollbar,.mnav::-webkit-scrollbar{display:none}
   .mveh button{flex:none;min-height:40px;padding:0 16px;border-radius:999px;border:1.5px solid var(--line2);background:transparent;color:var(--txt);font-weight:600;white-space:nowrap}
   .mveh button.on{background:var(--acc);border-color:var(--acc);color:var(--ink)}
-  aside{position:fixed;top:0;left:0;bottom:0;height:auto;width:min(320px,86vw);z-index:70;transform:translateX(-105%);transition:transform .22s ease;padding:calc(24px + var(--st)) 18px calc(24px + var(--sb))}
+  aside{position:fixed;top:0;left:0;height:100vh;height:100dvh;max-height:100dvh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;width:min(320px,86vw);z-index:70;transform:translateX(-105%);transition:transform .22s ease;padding:calc(24px + var(--st)) 18px calc(72px + var(--sb))}
+  aside>*{flex-shrink:0}
   .app.menu aside{transform:none;box-shadow:12px 0 40px rgba(0,0,0,.5)}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:65}
   .app.menu .scrim{display:block}

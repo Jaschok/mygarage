@@ -639,7 +639,7 @@ function render(){
         return '<div class="li lirow" data-a="view" data-id="'+esc(x.view)+'">'+chipHtml(x.a)+'<div class="col" style="flex:1 1 200px;min-width:0;gap:2px"><span class="t20">'+esc(x.label)+'</span><span class="mut">'+esc(x.area)+' · '+esc(x.a.i)+'</span></div></div>'; }).join("")+'</div></section>';
     h += '<section class="col" style="gap:12px"><div class="shead"><h2>Zuletzt erledigt</h2><button class="ghost" data-a="entrydlg">+ Eintrag hinzufügen</button></div>';
     var rec = sorted(v).slice(0,3);
-    h += rec.length ? '<div class="card list">'+rec.map(function(e){ return '<div class="li lirow" data-a="entryedit" data-id="'+e.id+'"><span class="t20" style="flex:1 1 200px">'+esc(e.t)+'</span><span class="mut">'+fmtDate(e.d)+' · '+fmtKm(e.km)+'</span><b>'+(e.cost!=null?fmtEur(e.cost):'')+'</b></div>'; }).join("")+'</div>'
+    h += rec.length ? '<div class="card list">'+rec.map(function(e){ return '<div class="li lirow" data-a="entryedit" data-id="'+e.id+'"><span class="t20" style="flex:1 1 200px">'+esc(e.t)+'</span><span class="mut">'+fmtDate(e.d)+' · '+fmtKm(e.km)+'</span><b>'+(e.cost!=null?fmtEur(e.cost):'')+'</b>'+iconBtns("entryedit","entrydel",null,e.id,e.t)+'</div>'; }).join("")+'</div>'
       : '<div class="card empty">Noch keine Einträge. Mit „+ Eintrag hinzufügen“ legst du den ersten an.</div>';
     h += '</section>';
     var cy=costYears(v);
@@ -737,7 +737,7 @@ function entryDlg(id){
   open('<form method="dialog" id="fe" novalidate><h2>'+(old?'Eintrag bearbeiten':'Eintrag hinzufügen')+'</h2>'
    + '<label class="f">Was wurde gemacht?<input name="t" id="et" required value="'+esc(o.t)+'" placeholder="z. B. Bremsen vorne"></label>'
    + '<div class="frow"><label class="f">Kategorie<select name="cat" id="ecat">'+S.cats.map(function(c){return '<option value="'+esc(c.id)+'"'+(o.cat===c.id?' selected':'')+'>'+esc(c.label)+'</option>';}).join("")+'<option value=""'+(old&&!catKnown(o.cat)?' selected':'')+'>Ohne Kategorie</option></select></label>'
-   + '<label class="f">Datum<input type="date" name="d" id="ed" required value="'+esc(o.d)+'"></label></div>'
+   + '<label class="f">Datum<input type="date" name="d" id="ed" min="1990-01-01" max="2099-12-31" required value="'+esc(o.d)+'"></label></div>'
    + '<div class="frow"><label class="f">Kilometerstand<input type="number" inputmode="numeric" name="km" id="ekm" min="0" value="'+(Number(o.km)||0)+'"></label>'
    + '<label class="f">Kosten in €<input name="cost" inputmode="decimal" autocomplete="off" value="'+esc(fmtInput(o.cost))+'" placeholder="z. B. 210,50"></label></div>'
    + '<label class="f">Notiz (freiwillig)<textarea name="note" rows="2" placeholder="z. B. Werkstatt, Teilenummer">'+esc(o.note||"")+'</textarea></label>'
@@ -830,7 +830,7 @@ function faellDlg(id){
    + (isNew?'<label class="f">Vorlage<select id="fpre"><option value="">Bitte wählen …</option>'+PRESETS.map(function(p,i){return '<option value="'+i+'">'+esc(p[0])+'</option>';}).join("")+'</select></label>':'')
    + '<label class="f">Bezeichnung<input id="ftit" required value="'+esc(f.titel)+'" placeholder="z. B. TÜV / HU"></label>'
    + '<label class="f">Art<select id="ftyp">'+TYPEN.map(function(t){return '<option value="'+t[0]+'"'+(f.typ===t[0]?' selected':'')+'>'+t[1]+'</option>';}).join("")+'</select></label>'
-   + '<label class="f" id="g-date">Fällig am<input type="date" id="fdate"></label>'
+   + '<label class="f" id="g-date">Fällig am<input type="date" id="fdate" min="1990-01-01" max="2099-12-31"></label>'
    + '<label class="f" id="g-km">Fällig bei Kilometerstand<input type="number" inputmode="numeric" min="0" id="fkm"></label>'
    + '<label class="f" id="g-dot">DOT-Jahr (Herstellungsjahr der Reifen)<input type="number" inputmode="numeric" min="1990" max="2100" id="fdot" placeholder="z. B. 2022"></label>'
    + '<label class="f" id="g-size">Reifengröße<input id="fsize" placeholder="z. B. 205/55 R16"></label>'
@@ -932,7 +932,7 @@ function tankDlg(id){
   var v=cur(), old=id?v.tank.find(function(x){return x.id===id;}):null; if(id&&!old) return;
   var o=old||{d:today(),km:v.km,liter:"",cost:"",voll:true}, warned=false;
   open('<form method="dialog" id="ft" novalidate><h2>'+(old?'Tankvorgang bearbeiten':'Tankvorgang hinzufügen')+'</h2>'
-   + '<div class="frow"><label class="f">Datum<input type="date" name="d" required value="'+esc(o.d)+'"></label><label class="f">Kilometerstand<input type="number" inputmode="numeric" min="0" name="km" required value="'+(Number(o.km)||0)+'"></label></div>'
+   + '<div class="frow"><label class="f">Datum<input type="date" name="d" min="1990-01-01" max="2099-12-31" required value="'+esc(o.d)+'"></label><label class="f">Kilometerstand<input type="number" inputmode="numeric" min="0" name="km" required value="'+(Number(o.km)||0)+'"></label></div>'
    + '<div class="frow"><label class="f">Getankte Liter<input name="liter" inputmode="decimal" autocomplete="off" value="'+esc(fmtInput(o.liter))+'" placeholder="z. B. 42,5"></label><label class="f">Gesamtpreis in €<input name="cost" inputmode="decimal" autocomplete="off" value="'+esc(fmtInput(o.cost))+'" placeholder="z. B. 78,90"></label></div>'
    + '<label class="chk"><input type="checkbox" name="voll" '+(o.voll!==false?'checked':'')+'> Voll getankt (für die Verbrauchsberechnung)</label>'
    + '<p class="warnmsg" id="terr" hidden></p>'

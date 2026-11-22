@@ -113,6 +113,7 @@ dialog h2{margin-bottom:18px}
 .sub{padding:14px 16px;margin-bottom:14px;background:#12161A;border-radius:14px}
 .acts{display:flex;justify-content:flex-end;gap:10px;margin-top:8px;flex-wrap:wrap}
 .cin{flex:1;min-width:0;min-height:46px;border-radius:10px;border:1.5px solid var(--line2);background:#0E1114;color:var(--txt);padding:0 12px;font-size:16px}
+.mcloud{border-radius:50%}.mcloud.ok{color:#4ADE80}.mcloud.warn{color:#FACC15}.mcloud.bad{color:#F87171}.mcloud.none{color:var(--mut)}.mcloud[hidden]{display:none}
 .mv{min-width:44px;min-height:44px;background:transparent;border:0;color:var(--mut2);display:inline-flex;align-items:center;justify-content:center;border-radius:8px;padding:0}
 .mv:hover{color:var(--acc)}
 .warnmsg{margin:0 0 12px;padding:10px 12px;border-radius:10px;background:#38300E;color:#FBE27A;font-weight:600;font-size:14px}
@@ -170,7 +171,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 <body>
 <div class="app" id="app">
   <header class="mtop">
-    <div class="mrow"><button class="mv" data-a="menu" aria-label="Menü öffnen" style="color:var(--txt)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="mlogo cond" id="mlogo"></span></div>
+    <div class="mrow"><button class="mv" data-a="menu" aria-label="Menü öffnen" style="color:var(--txt)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="mlogo cond" id="mlogo"></span><button class="mv mcloud none" id="mcloud" data-a="dbxtop" aria-label="Abgleich" style="margin-left:auto" hidden></button></div>
     <div class="mveh" id="mveh"></div>
     <nav class="mnav" id="mnav" aria-label="Bereiche"></nav>
   </header>
@@ -180,6 +181,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
     <nav class="col" style="gap:6px"><div class="lbl" style="padding:0 8px 4px">Bereiche</div><div id="nav" class="col" style="gap:6px"></div></nav>
     <div class="col" style="gap:8px;margin-top:auto">
       <div id="trashnav"></div>
+      <div style="height:1px;background:var(--line);margin:6px 0 10px"></div>
+      <div id="dbxbox" class="col" style="gap:8px"></div>
       <div style="height:1px;background:var(--line);margin:6px 0 10px"></div>
       <div class="lbl" style="padding:0 8px">Datensicherung</div>
       <button class="ghost" data-a="export">Sicherung speichern</button>
@@ -317,9 +320,11 @@ function load(){
 }
 var S=null, lastGood="", booted=false;
 function save(){
-  try { var j=JSON.stringify(S); localStorage.setItem(KEY,j); lastGood=j; return true; }
+  try {
+    var sj=sharedJson(), ch=(sj!==lastShared); if(ch){ lastShared=sj; S.chg=Date.now(); }
+    var j=JSON.stringify(S); localStorage.setItem(KEY,j); lastGood=j; if(ch) dbxSoon(); return true; }
   catch(e){
-    try { if(lastGood) S=JSON.parse(lastGood); } catch(x){}
+    try { if(lastGood){ S=JSON.parse(lastGood); lastShared=sharedJson(); } } catch(x){}
     close(); render();
     toast("Speichern hat nicht geklappt, weil der Speicher voll ist. Die letzte Änderung wurde verworfen.",null,8000);
     return false;
@@ -378,7 +383,7 @@ function fileInfo(ref){
   return null;
 }
 function fileFull(ref){
-  if(ref.indexOf("f:")===0){ if(!DB) return Promise.resolve(""); return dbTx(["full"],"readonly",function(tx){ return tx.objectStore("full").get(ref.slice(2)); }).then(function(r){ return r ? r.data : ""; }); }
+  if(ref.indexOf("f:")===0){ if(!DB) return Promise.resolve(""); return dbTx(["full"],"readonly",function(tx){ return tx.objectStore("full").get(ref.slice(2)); }).then(function(r){ return r ? r.data : dbxFetchFull(ref.slice(2)); }); }
   return Promise.resolve(ref);
 }
 function eachRef(fn){
@@ -1084,6 +1089,10 @@ document.addEventListener("click",function(ev){
   else if(a==="trashempty"){ if(confirm("Papierkorb leeren? Alles darin wird endgültig gelöscht.")){ S.trash=[]; save(); gc(); render(); } }
   else if(a==="copyfin"){ copy(v.fin); }
   else if(a==="export"){ closeMenu(); exportData(); }
+  else if(a==="dbxconnect"){ closeMenu(); dbxConnect(); }
+  else if(a==="dbxsync"){ closeMenu(); if(dbxConnected()){ toast("Gleicht ab …",null,1500); dbxSync(); } }
+  else if(a==="dbxdisconnect"){ closeMenu(); dbxDisconnect(); }
+  else if(a==="dbxtop"){ if(dbxConnected()){ toast(dbxLabel().t,null,2500); dbxSync(); } else $("app").classList.add("menu"); }
   else if(a==="bkdone"){ S.lastBackup=today(); S.backupSnooze=""; save(); setTimeout(function(){ close(); render(); toast("Sicherung gespeichert"); },300); }
   else if(a==="bksnooze"){ var sn=new Date(); sn.setDate(sn.getDate()+7); S.backupSnooze=isoOf(sn); save(); render(); }
   else if(a==="import"){ closeMenu(); $("impfile").click(); }
@@ -1170,18 +1179,351 @@ document.addEventListener("pointercancel",function(){ if(press){ var d=press.dra
 document.addEventListener("touchmove",function(e){ if(press && press.drag) e.preventDefault(); },{passive:false});
 document.addEventListener("contextmenu",function(e){ if(e.target.closest && e.target.closest("[data-card]") && !e.target.closest("input")) e.preventDefault(); });
 
+/* ---------- Abgleich mit Dropbox ---------- */
+/* Der App-Schluessel ist oeffentlich (PKCE, kein Geheimnis noetig). Das App-Geheimnis wird nirgends verwendet. */
+var DBX_KEY="rtqk5yofsv4utnr", DBX_LS="mygarage-dbx", DBX_BASE="mygarage-sync-base", DBX_AUTH="mygarage-dbx-auth", DBX_LAST="mygarage-sync-last";
+var dbx={ tok:null, busy:false, st:"off", msg:"", last:0, again:false, timer:null, pending:false };
+
+function dbxRedirect(){ return location.origin+location.pathname.replace(/index\.html$/,""); }
+function dbxPossible(){ return location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1"; }
+function dbxConnected(){ return !!(dbx.tok && dbx.tok.rt); }
+function dbxLoad(){
+  try { dbx.tok=JSON.parse(localStorage.getItem(DBX_LS)); } catch(e){ dbx.tok=null; }
+  dbx.last=Number(localStorage.getItem(DBX_LAST))||0;
+}
+function dbxSaveTok(){ try { if(dbx.tok) localStorage.setItem(DBX_LS,JSON.stringify(dbx.tok)); else localStorage.removeItem(DBX_LS); } catch(e){} }
+
+/* ----- gemeinsame Daten (ohne geraetespezifische Felder) ----- */
+var LOCALK=["sel","view","filter","lastRemind","backupSnooze","lastBackup","chg"];
+function sharedObj(){ var o={}; Object.keys(S).forEach(function(k){ if(LOCALK.indexOf(k)<0) o[k]=JSON.parse(JSON.stringify(S[k])); }); return o; }
+function sharedJson(){ var o={}; Object.keys(S).forEach(function(k){ if(LOCALK.indexOf(k)<0) o[k]=S[k]; }); return JSON.stringify(o); }
+var lastShared="";
+
+/* ----- Zusammenfuehren (drei Staende: Basis = letzter Abgleich, lokal, Dropbox) ----- */
+function eq(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
+function merge3(b,l,r,locNewer){
+  if(eq(l,r)) return l;
+  if(b===undefined) return locNewer?l:r;
+  var lc=!eq(l,b), rc=!eq(r,b);
+  if(lc && !rc) return l;
+  if(rc && !lc) return r;
+  return locNewer?l:r;
+}
+function byId(arr){ var m={}; (arr||[]).forEach(function(x){ if(x && x.id!==undefined) m[x.id]=x; }); return m; }
+function mergeById(b,l,r,locNewer){
+  var hasBase=Array.isArray(b);
+  var bm=byId(b), lm=byId(l), rm=byId(r), out=[], seen={};
+  function decide(id){
+    var bi=bm[id], li=lm[id], ri=rm[id];
+    if(li && ri){
+      if(eq(li,ri)) return li;
+      if(bi===undefined) return locNewer?li:ri;
+      var lc=!eq(li,bi), rc=!eq(ri,bi);
+      if(lc && !rc) return li;
+      if(rc && !lc) return ri;
+      return locNewer?li:ri;
+    }
+    if(li && !ri){ /* lokal da, in Dropbox nicht */
+      if(bi===undefined) return li;              /* neu auf diesem Geraet */
+      return eq(li,bi) ? null : li;              /* dort geloescht, hier unveraendert -> loeschen; hier geaendert -> behalten */
+    }
+    if(!li && ri){
+      if(bi===undefined) return ri;
+      return eq(ri,bi) ? null : ri;
+    }
+    return null;
+  }
+  var first=locNewer?(l||[]):(r||[]), second=locNewer?(r||[]):(l||[]);
+  [first,second].forEach(function(list){
+    list.forEach(function(x){
+      if(!x || x.id===undefined || seen[x.id]) return;
+      seen[x.id]=1; var d=decide(x.id); if(d) out.push(d);
+    });
+  });
+  return out;
+}
+function mergeVehicle(b,l,r,locNewer){
+  var o={}, keys={};
+  [b,l,r].forEach(function(x){ if(x) Object.keys(x).forEach(function(k){ keys[k]=1; }); });
+  Object.keys(keys).forEach(function(k){
+    var bv=b?b[k]:undefined, lv=l[k], rv=r[k];
+    if(["faell","specList","log","zettel","tank"].indexOf(k)>=0){ o[k]=mergeById(bv,lv,rv,locNewer); }
+    else if(k==="lists"){
+      var lo={}, ak={};
+      [bv,lv,rv].forEach(function(x){ if(x) Object.keys(x).forEach(function(a){ ak[a]=1; }); });
+      Object.keys(ak).forEach(function(a){ lo[a]=mergeById(bv?bv[a]:undefined,lv?lv[a]:undefined,rv?rv[a]:undefined,locNewer); });
+      o[k]=lo;
+    }
+    else if(k==="km"){ o[k]=Math.max(Number(lv)||0,Number(rv)||0); }
+    else { var m=merge3(bv,lv,rv,locNewer); if(m!==undefined) o[k]=m; }
+  });
+  return o;
+}
+function dbxMerge(b,l,r,locNewer){
+  b=b||{};
+  var o={}, keys={};
+  [b,l,r].forEach(function(x){ Object.keys(x).forEach(function(k){ keys[k]=1; }); });
+  Object.keys(keys).forEach(function(k){
+    if(LOCALK.indexOf(k)>=0) return;
+    if(["areas","cats","trash"].indexOf(k)>=0){ o[k]=mergeById(b[k],l[k],r[k],locNewer); }
+    else if(k==="vehicles"){
+      var bm=byId(b.vehicles), lm=byId(l.vehicles), rm=byId(r.vehicles), out=[], seen={};
+      var first=locNewer?(l.vehicles||[]):(r.vehicles||[]), second=locNewer?(r.vehicles||[]):(l.vehicles||[]);
+      [first,second].forEach(function(list){ list.forEach(function(v){
+        if(!v || seen[v.id]) return; seen[v.id]=1;
+        var bi=bm[v.id], li=lm[v.id], ri=rm[v.id], res=null;
+        if(li && ri) res=mergeVehicle(bi,li,ri,locNewer);
+        else if(li && !ri){ res=(bi===undefined || !eq(li,bi)) ? li : null; }
+        else if(!li && ri){ res=(bi===undefined || !eq(ri,bi)) ? ri : null; }
+        if(res) out.push(res);
+      }); });
+      o.vehicles=out;
+    }
+    else if(k.indexOf("mig")===0){ o[k]=!!(l[k]||r[k]); }
+    else { var m=merge3(b[k],l[k],r[k],locNewer); if(m!==undefined) o[k]=m; }
+  });
+  return o;
+}
+
+/* ----- Dropbox-Zugang ----- */
+function dbxForm(obj){ return Object.keys(obj).map(function(k){ return encodeURIComponent(k)+"="+encodeURIComponent(obj[k]); }).join("&"); }
+function dbxToken(p){
+  return fetch("https://api.dropboxapi.com/oauth2/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:dbxForm(p)})
+    .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ if(!r.ok){ var e=new Error(j.error||"token"); e.code=j.error||"token"; throw e; } return j; }); });
+}
+function dbxAccess(){
+  var t=dbx.tok; if(!t || !t.rt) return Promise.reject(new Error("nicht verbunden"));
+  if(t.at && t.exp>Date.now()+60000) return Promise.resolve(t.at);
+  return dbxToken({grant_type:"refresh_token",refresh_token:t.rt,client_id:DBX_KEY}).then(function(j){ t.at=j.access_token; t.exp=Date.now()+(j.expires_in||14400)*1000; dbxSaveTok(); return t.at; });
+}
+function dbxCall(url,hd,body,retry){
+  return dbxAccess().then(function(at){
+    var h={Authorization:"Bearer "+at}; Object.keys(hd||{}).forEach(function(k){ h[k]=hd[k]; });
+    return fetch(url,{method:"POST",headers:h,body:body});
+  }).then(function(r){
+    if(r.status===401 && !retry){ dbx.tok.at=""; dbx.tok.exp=0; return dbxCall(url,hd,body,true); }
+    return r;
+  });
+}
+function dbxDownload(path){
+  return dbxCall("https://content.dropboxapi.com/2/files/download",{"Dropbox-API-Arg":JSON.stringify({path:path})},null).then(function(r){
+    if(r.ok){
+      var res=r.headers.get("Dropbox-API-Result"), rev=""; try { rev=JSON.parse(res).rev||""; } catch(e){}
+      return r.text().then(function(t){ return {text:t,rev:rev}; });
+    }
+    return r.text().then(function(t){ if(r.status===409 && t.indexOf("not_found")>=0) return null; var e=new Error("HTTP "+r.status); e.status=r.status; throw e; });
+  });
+}
+function dbxUpload(path,text,rev){
+  var arg={path:path,mode:rev?{".tag":"update",update:rev}:{".tag":"add"},autorename:false,mute:true};
+  return dbxCall("https://content.dropboxapi.com/2/files/upload",{"Dropbox-API-Arg":JSON.stringify(arg),"Content-Type":"application/octet-stream"},text).then(function(r){
+    if(r.ok) return r.json();
+    return r.text().then(function(t){ var e=new Error("HTTP "+r.status); e.status=r.status; if(r.status===409 && t.indexOf("conflict")>=0) e.conflict=true; throw e; });
+  });
+}
+function dbxList(){
+  var names={};
+  function page(url,body){
+    return dbxCall(url,{"Content-Type":"application/json"},JSON.stringify(body)).then(function(r){
+      if(!r.ok) return r.text().then(function(t){ if(r.status===409 && t.indexOf("not_found")>=0) return null; var e=new Error("HTTP "+r.status); e.status=r.status; throw e; });
+      return r.json().then(function(j){
+        (j.entries||[]).forEach(function(en){ names[en.name]=1; });
+        if(j.has_more) return page("https://api.dropboxapi.com/2/files/list_folder/continue",{cursor:j.cursor});
+      });
+    });
+  }
+  return page("https://api.dropboxapi.com/2/files/list_folder",{path:"/files",limit:2000}).then(function(){ return names; });
+}
+
+/* ----- Fotos und PDFs ----- */
+function okId(id){ return /^[a-z0-9]+$/i.test(id); }
+function dbxFetchFull(id){
+  if(!dbxConnected() || !navigator.onLine || !DB || !okId(id)) return Promise.resolve("");
+  toast("Datei wird aus Dropbox geladen …",null,3000);
+  return dbxDownload("/files/"+id+".f").then(function(res){
+    if(!res) return "";
+    var d=res.text; if(d.indexOf("data:image/")!==0 && d.indexOf("data:application/pdf")!==0) return "";
+    return dbTx(["full"],"readwrite",function(tx){ tx.objectStore("full").put({id:id,data:d}); }).then(function(){ return d; });
+  }).catch(function(){ return ""; });
+}
+function localHasFull(id){ return dbTx(["full"],"readonly",function(tx){ return tx.objectStore("full").getKey(id); }).then(function(k){ return k!==undefined; }).catch(function(){ return false; }); }
+function dbxFiles(){
+  if(!DB) return Promise.resolve();
+  var used={}, schein={};
+  eachRef(function(r){ if(r && r.indexOf("f:")===0) used[r.slice(2)]=1; return r; });
+  S.vehicles.forEach(function(v){ (v.schein||[]).forEach(function(r){ if(r && r.indexOf("f:")===0) schein[r.slice(2)]=1; }); });
+  var ids=Object.keys(used).filter(okId);
+  return dbxList().then(function(names){
+    names=names||{};
+    var gotMeta=false;
+    function seq(list,fn){ return list.reduce(function(p,x){ return p.then(function(){ return fn(x).catch(function(){}); }); },Promise.resolve()); }
+    /* 1. fehlende Vorschauen holen */
+    return seq(ids.filter(function(id){ return !TH[id] && names[id+".m"]; }),function(id){
+      return dbxDownload("/files/"+id+".m").then(function(res){
+        if(!res) return;
+        var m=JSON.parse(res.text); if(m.kind!=="img" && m.kind!=="pdf") return;
+        var meta={id:id,kind:m.kind,name:String(m.name||""),thumb:safeImg(m.thumb)};
+        return dbTx(["meta"],"readwrite",function(tx){ tx.objectStore("meta").put(meta); }).then(function(){ TH[id]={kind:meta.kind,name:meta.name,thumb:meta.thumb}; gotMeta=true; });
+      });
+    }).then(function(){
+      /* 2. neue Dateien hochladen (erst die Datei, dann die Vorschau) */
+      return seq(ids.filter(function(id){ return TH[id] && !names[id+".m"]; }),function(id){
+        return dbTx(["full"],"readonly",function(tx){ return tx.objectStore("full").get(id); }).then(function(rec){
+          if(!rec || !rec.data) return;
+          return dbxUpload("/files/"+id+".f",rec.data,"").catch(function(e){ if(!e.conflict) throw e; })
+            .then(function(){ var m=TH[id]; return dbxUpload("/files/"+id+".m",JSON.stringify({kind:m.kind,name:m.name,thumb:m.thumb}),"").catch(function(e){ if(!e.conflict) throw e; }); });
+        });
+      });
+    }).then(function(){
+      /* 3. Fahrzeugschein immer auf dem Geraet haben */
+      return seq(Object.keys(schein).filter(function(id){ return okId(id) && TH[id]; }),function(id){
+        return localHasFull(id).then(function(has){ if(has) return; return dbxFetchFull(id); });
+      });
+    }).then(function(){ if(gotMeta) render(); });
+  });
+}
+
+/* ----- Ablauf ----- */
+function dbxSet(st,msg){ dbx.st=st; dbx.msg=msg||""; dbxUi(); }
+function dbxAgo(t){
+  if(!t) return "noch nie";
+  var s=Math.round((Date.now()-t)/1000);
+  if(s<60) return "gerade eben";
+  var m=Math.round(s/60); if(m<60) return "vor "+m+" Min.";
+  var h=Math.round(m/60); if(h<24) return "vor "+h+" Std.";
+  var d=Math.round(h/24); return "vor "+d+(d===1?" Tag":" Tagen");
+}
+function dbxSoon(ms){ if(!dbxConnected()) return; clearTimeout(dbx.timer); dbx.timer=setTimeout(function(){ dbxSync(); },ms||4000); }
+function dbxSync(){
+  if(!dbxConnected()) return Promise.resolve();
+  if(dbx.busy){ dbx.again=true; return Promise.resolve(); }
+  if(!navigator.onLine){ dbxSet("offline"); return Promise.resolve(); }
+  if(dlg.open || press){ dbx.pending=true; return Promise.resolve(); }
+  dbx.busy=true; dbxSet("sync");
+  var tries=0;
+  function cycle(){
+    tries++;
+    return dbxDownload("/data.json").then(function(rem){
+      if(dlg.open || press){ dbx.pending=true; return "skip"; }
+      var remoteSh=null, remChg=0, rev="";
+      if(rem){
+        var o; try { o=JSON.parse(rem.text); } catch(e){ throw new Error("defekt"); }
+        if(!o || o.app!=="MyGarage" || !o.data || !Array.isArray(o.data.vehicles)) throw new Error("defekt");
+        remoteSh=o.data; remChg=o.chg||0; rev=rem.rev;
+      }
+      var base=null; try { base=JSON.parse(localStorage.getItem(DBX_BASE)); } catch(e){}
+      var local=sharedObj(), merged;
+      if(!remoteSh) merged=local;
+      else if(!base && !hasData()) merged=remoteSh;
+      else merged=dbxMerge(base,local,remoteSh,(S.chg||0)>=remChg);
+      if(!merged.vehicles || !merged.vehicles.length) throw new Error("leer");
+      if(!eq(merged,local)){
+        var loc={}; LOCALK.forEach(function(k){ if(S[k]!==undefined) loc[k]=S[k]; });
+        var ns=Object.assign({},JSON.parse(JSON.stringify(merged)),loc); ns.chg=Math.max(S.chg||0,remChg);
+        S=normalize(ns); lastShared=sharedJson(); save(); render();
+      }
+      return dbxFiles().then(function(){ return gc(); }).then(function(){
+        var cur_=sharedObj();
+        if(remoteSh && eq(cur_,remoteSh)){ localStorage.setItem(DBX_BASE,JSON.stringify(cur_)); return "ok"; }
+        var body=JSON.stringify({app:"MyGarage",format:3,savedAt:new Date().toISOString(),chg:S.chg||Date.now(),data:cur_});
+        return dbxUpload("/data.json",body,rev).then(function(){ localStorage.setItem(DBX_BASE,JSON.stringify(cur_)); return "ok"; });
+      });
+    }).catch(function(e){
+      if(e && e.conflict && tries<3) return cycle();
+      throw e;
+    });
+  }
+  return cycle().then(function(res){
+    if(res==="skip"){ dbxSet(dbx.st==="sync"?"ok":dbx.st,dbx.msg); return; }
+    dbx.last=Date.now(); try { localStorage.setItem(DBX_LAST,String(dbx.last)); } catch(e){}
+    dbxSet("ok");
+  }).catch(function(e){
+    if(e && e.code==="invalid_grant"){ dbxSet("err","Die Verbindung ist abgelaufen. Bitte neu mit Dropbox verbinden."); }
+    else if(e instanceof TypeError || !navigator.onLine){ dbxSet("offline"); }
+    else if(e && e.message==="defekt"){ dbxSet("err","Die Abgleichsdatei in Dropbox ist nicht lesbar. Es wurde nichts überschrieben."); }
+    else if(e && e.status===429){ dbxSet("err","Dropbox ist gerade überlastet. Es wird später erneut versucht."); dbxSoon(60000); }
+    else { dbxSet("err","Der Abgleich hat nicht geklappt. Es geht nichts verloren, die Daten bleiben auf diesem Gerät."); try { console.warn("Abgleich:",e); } catch(x){} }
+  }).then(function(){
+    dbx.busy=false;
+    if(dbx.again){ dbx.again=false; dbxSoon(400); }
+  });
+}
+
+/* ----- Oberflaeche ----- */
+var ICON_CLOUD='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18a4 4 0 0 1-.6-7.96A5.5 5.5 0 0 1 17 8.5a4.5 4.5 0 0 1 .5 9.5z"/></svg>';
+function dbxLabel(){
+  if(!dbxConnected()) return {c:"none",t:"Nicht verbunden"};
+  if(dbx.st==="sync") return {c:"warn",t:"Gleicht ab …"};
+  if(dbx.st==="offline") return {c:"warn",t:"Kein Netz. Wird später abgeglichen."};
+  if(dbx.st==="err") return {c:"bad",t:dbx.msg||"Fehler beim Abgleich"};
+  return {c:"ok",t:"Abgeglichen · "+dbxAgo(dbx.last)};
+}
+function dbxUi(){
+  var box=$("dbxbox"), lab=dbxLabel();
+  if(box){
+    var h='<div class="lbl" style="padding:0 8px">Abgleich (Dropbox)</div>';
+    if(!dbxPossible()) h+='<span class="mut" style="font-size:13px;padding:0 8px">Der Abgleich geht nur über die Internetadresse der App, nicht über die lokale Datei.</span>';
+    else if(!dbxConnected()) h+='<button class="ghost" data-a="dbxconnect">'+ICON_CLOUD+'Mit Dropbox verbinden</button><span class="mut" style="font-size:13px;padding:0 8px">'+(dbx.st==="err"&&dbx.msg?esc(dbx.msg):'Gleicht PC und iPhone automatisch ab.')+'</span>';
+    else h+='<span class="chip '+lab.c+'" style="white-space:normal;align-self:stretch"><i style="flex:none"></i>'+esc(lab.t)+'</span><div class="row" style="gap:8px"><button class="ghost" data-a="dbxsync" style="flex:1">Jetzt abgleichen</button><button class="ghost" data-a="dbxdisconnect">Trennen</button></div>';
+    box.innerHTML=h;
+  }
+  var mc=$("mcloud");
+  if(mc){ if(!mc.firstChild) mc.innerHTML=ICON_CLOUD; mc.hidden=!dbxPossible(); mc.className="mv mcloud "+(dbxConnected()?lab.c:"none"); mc.setAttribute("aria-label","Abgleich: "+lab.t); mc.title=lab.t; }
+}
+function randStr(n){ var a="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~", b=new Uint8Array(n), s=""; crypto.getRandomValues(b); for(var i=0;i<n;i++) s+=a[b[i]%a.length]; return s; }
+function b64url(buf){ var s="", u=new Uint8Array(buf); for(var i=0;i<u.length;i++) s+=String.fromCharCode(u[i]); return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function dbxConnect(){
+  if(!dbxPossible()){ toast("Der Abgleich geht nur über die Internetadresse der App."); return; }
+  if(!window.crypto || !crypto.subtle){ toast("Dieser Browser kann die Anmeldung nicht durchführen."); return; }
+  var ver=randStr(64), st=randStr(24), red=dbxRedirect();
+  crypto.subtle.digest("SHA-256",new TextEncoder().encode(ver)).then(function(h){
+    localStorage.setItem(DBX_AUTH,JSON.stringify({ver:ver,state:st,red:red,at:Date.now()}));
+    location.href="https://www.dropbox.com/oauth2/authorize?"+dbxForm({client_id:DBX_KEY,response_type:"code",redirect_uri:red,code_challenge:b64url(h),code_challenge_method:"S256",token_access_type:"offline",state:st});
+  }).catch(function(){ toast("Die Anmeldung konnte nicht gestartet werden."); });
+}
+function dbxReturn(){
+  var q; try { q=new URLSearchParams(location.search); } catch(e){ return Promise.resolve(); }
+  if(!q.get("code") && !q.get("error")) return Promise.resolve();
+  var auth=null; try { auth=JSON.parse(localStorage.getItem(DBX_AUTH)); } catch(e){}
+  var code=q.get("code"), state=q.get("state"), err=q.get("error");
+  try { history.replaceState(null,"",dbxRedirect()); } catch(e){}
+  localStorage.removeItem(DBX_AUTH);
+  if(err){ toast("Die Verbindung mit Dropbox wurde abgebrochen."); return Promise.resolve(); }
+  if(!auth || auth.state!==state){ toast("Die Anmeldung bei Dropbox konnte nicht bestätigt werden. Bitte noch einmal versuchen."); return Promise.resolve(); }
+  return dbxToken({grant_type:"authorization_code",code:code,client_id:DBX_KEY,redirect_uri:auth.red,code_verifier:auth.ver}).then(function(j){
+    dbx.tok={rt:j.refresh_token,at:j.access_token,exp:Date.now()+(j.expires_in||14400)*1000}; dbxSaveTok();
+    localStorage.removeItem(DBX_BASE);
+    toast("Mit Dropbox verbunden",null,3500); dbxUi(); dbxSoon(300);
+  }).catch(function(){ toast("Die Verbindung mit Dropbox hat nicht geklappt. Bitte noch einmal versuchen."); });
+}
+function dbxDisconnect(){
+  if(!confirm("Verbindung mit Dropbox trennen? Deine Daten bleiben auf diesem Gerät und in Dropbox erhalten.")) return;
+  var t=dbx.tok;
+  dbxAccess().then(function(at){ return fetch("https://api.dropboxapi.com/2/auth/token/revoke",{method:"POST",headers:{Authorization:"Bearer "+at}}); }).catch(function(){});
+  dbx.tok=null; dbxSaveTok(); localStorage.removeItem(DBX_BASE); dbx.st="off"; dbx.msg=""; dbxUi(); toast("Verbindung getrennt");
+}
+function dbxStart(){
+  dbxLoad(); lastShared=sharedJson(); dbxUi();
+  dbxReturn().then(function(){ if(dbxConnected()){ dbxUi(); dbxSoon(600); } });
+  document.addEventListener("visibilitychange",function(){ if(document.visibilityState==="visible" && dbxConnected() && Date.now()-dbx.last>20000) dbxSoon(500); });
+  window.addEventListener("online",function(){ dbxSoon(800); });
+  setInterval(function(){ dbxUi(); if(document.visibilityState==="visible" && dbxConnected() && Date.now()-dbx.last>120000) dbxSync(); },30000);
+  dlg.addEventListener("close",function(){ if(dbx.pending){ dbx.pending=false; dbxSoon(1200); } });
+}
+
+
 /* ---------- Start ---------- */
 (function(){
   var lg=document.querySelector("aside .logo svg");
   if(lg) $("mlogo").innerHTML=lg.outerHTML.replace(/lg-/g,"ml-").replace('width="44" height="44"','width="30" height="30"')+'<span>MyGarage</span>';
 })();
-S=load();
+S=load(); lastShared=sharedJson();
 S.view="dash"; S.filter="alle"; /* beim Start immer die Uebersicht, Fahrzeug bleibt das zuletzt gewaehlte */
 dbOpen().then(metaLoad).catch(function(){})
   .then(moveInline).catch(function(){})
   .then(function(){ expireTrash(); save(); return gc(); }).catch(function(){})
   .then(function(){
-    booted=true; render(); remindDlg();
+    booted=true; render(); remindDlg(); dbxStart();
     try { if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
   });
 

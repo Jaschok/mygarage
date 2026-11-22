@@ -129,7 +129,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
 @media(max-width:1100px){.grid3{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:820px){
   .app{display:block}
-  .mtop{display:flex;flex-direction:column;gap:10px;position:sticky;top:0;z-index:40;background:var(--side);padding:calc(10px + var(--st)) 12px 10px;border-bottom:1px solid var(--line)}
+  .mtop{display:flex;flex-direction:column;gap:8px;position:sticky;top:0;z-index:40;background:var(--side);padding:calc(10px + var(--st)) 12px 10px;border-bottom:1px solid var(--line)}
   .mrow{display:flex;align-items:center;gap:6px}
   .mlogo{font-size:22px;letter-spacing:.06em;color:var(--acc);display:flex;align-items:center;gap:8px}
   .mveh{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
@@ -141,9 +141,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
   .app.menu aside{transform:none;box-shadow:12px 0 40px rgba(0,0,0,.5)}
   .scrim{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:65}
   .app.menu .scrim{display:block}
-  main{padding:16px 14px calc(100px + var(--sb));gap:22px}
-  .mnav{display:flex;gap:6px;position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--side);border-top:1px solid var(--line);padding:8px 10px calc(8px + var(--sb));overflow-x:auto;scrollbar-width:none}
-  .mnav button{flex:none;min-height:46px;padding:0 16px;border-radius:12px;border:0;background:transparent;color:#C9D2D8;font-weight:600;font-size:16px;white-space:nowrap}
+  main{padding:16px 14px calc(32px + var(--sb));gap:22px}
+  .mnav{display:flex;gap:6px;margin:0 -12px;padding:0 12px;overflow-x:auto;scrollbar-width:none}
+  .mnav button{flex:none;min-height:42px;padding:0 14px;border-radius:12px;border:0;background:transparent;color:#C9D2D8;font-weight:600;font-size:16px;white-space:nowrap}
   .mnav button.on{background:#232A31;color:var(--acc)}
   .head{padding:16px;gap:16px}
   h1{font-size:30px}
@@ -160,7 +160,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
   .list{padding:4px 16px}
   .tl{gap:10px}
   .entry{padding:14px 16px;gap:8px 14px}
-  .toast{bottom:calc(86px + var(--sb))}
+  .toast{bottom:calc(24px + var(--sb))}
   dialog{padding:20px}
 }
 @media(max-width:620px){.grid3{grid-template-columns:1fr}}
@@ -172,6 +172,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
   <header class="mtop">
     <div class="mrow"><button class="mv" data-a="menu" aria-label="Menü öffnen" style="color:var(--txt)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button><span class="mlogo cond" id="mlogo"></span></div>
     <div class="mveh" id="mveh"></div>
+    <nav class="mnav" id="mnav" aria-label="Bereiche"></nav>
   </header>
   <aside id="side">
     <div class="logo cond" style="display:flex;align-items:center;gap:12px"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="44" height="44" aria-hidden="true"><defs><radialGradient id="lg-bg" cx="50%" cy="30%" r="80%"><stop offset="0" stop-color="#202830"/><stop offset="1" stop-color="#0A0D10"/></radialGradient><linearGradient id="lg-h" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD683"/><stop offset="1" stop-color="#FF9114"/></linearGradient><linearGradient id="lg-in" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1D1710"/><stop offset="1" stop-color="#4B3112"/></linearGradient><radialGradient id="lg-l" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#FFF3C9" stop-opacity=".95"/><stop offset="1" stop-color="#FFB43B" stop-opacity="0"/></radialGradient></defs><rect width="96" height="96" rx="22" fill="url(#lg-bg)"/><path d="M12 45L48 16l36 29v37H12z" fill="url(#lg-h)"/><path d="M12 45L48 16l36 29" fill="none" stroke="#FFF1C7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><rect x="24" y="46" width="48" height="36" rx="2.5" fill="url(#lg-in)"/><ellipse cx="37" cy="73" rx="11" ry="8" fill="url(#lg-l)"/><ellipse cx="59" cy="73" rx="11" ry="8" fill="url(#lg-l)"/><circle cx="37" cy="73" r="2.8" fill="#FFF7DA"/><circle cx="59" cy="73" r="2.8" fill="#FFF7DA"/><rect x="43" y="72" width="10" height="2.4" rx="1.2" fill="#8A5E20"/><g fill="#FFB43B"><rect x="24" y="46" width="48" height="5.2" rx="1.2"/><rect x="24" y="52.6" width="48" height="5.2" rx="1.2"/><rect x="24" y="59.2" width="48" height="5.2" rx="1.2"/></g><rect x="24" y="64.8" width="48" height="2.4" rx="1.2" fill="#C26A0B"/></svg><span>MyGarage</span></div>
@@ -188,7 +189,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{ou
     </div>
   </aside>
   <main id="main"></main>
-  <nav class="mnav" id="mnav" aria-label="Bereiche"></nav>
   <div class="scrim" data-a="menuclose"></div>
 </div>
 
